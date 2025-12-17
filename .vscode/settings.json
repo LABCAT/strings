@@ -1,0 +1,36 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "astro-build.astro-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "astro"
+  ],
+  "prettier.documentSelectors": ["**/*.astro"],
+  "astro.enableCodeLens": true,
+  "astro.enableTypeScript": false,
+  "typescript.validate.enable": false,
+  "typescript.preferences.includePackageJsonAutoImports": "off",
+  "files.associations": {
+    "*.astro": "astro"
+  },
+  "emmet.includeLanguages": {
+    "astro": "html"
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.output": true,
+    "**/pnpm-lock.yaml": true
+  },
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/.output": true
+  }
+}

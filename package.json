@@ -1,0 +1,25 @@
+{
+	"name": "strings",
+	"type": "module",
+	"version": "0.0.1",
+	"scripts": {
+		"dev": "astro dev",
+		"build": "astro build",
+		"preview": "astro preview",
+		"astro": "astro",
+		"lint": "eslint . --ext .js,.astro",
+		"format": "prettier --write .",
+		"check": "astro check"
+	},
+	"dependencies": {
+		"@tonejs/midi": "^2.0.28",
+		"astro": "^5.15",
+		"jszip": "^3.10.1",
+		"normalize.css": "^8.0.1",
+		"p5": "^1.9.0"
+	},
+	"devDependencies": {
+		"@rollup/plugin-inject": "^5.0.5",
+		"sass-embedded": "^1.92.0"
+	}
+}
