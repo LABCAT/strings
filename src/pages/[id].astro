@@ -18,6 +18,7 @@ const { sketchInfo } = Astro.props;
 <script>
   // Direct mapping from sketch ID to import function
   const sketches = {
+    'number-1': () => import('/src/sketches/StringsNo1.js'),
     'number-2': () => import('/src/sketches/StringsNo2.js'),
   };
 

@@ -3,7 +3,7 @@ import "p5/lib/addons/p5.sound";
 import { Midi } from '@tonejs/midi';
 
 const base = import.meta.env.BASE_URL || './';
-const audio = base + 'audio/StringsNo2.ogg';
+const audio = base + 'audio/StringsNo2.mp3';
 const midi = base + 'audio/StringsNo2.mid';
 
 const sketch = (p) => {
