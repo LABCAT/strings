@@ -1,6 +1,7 @@
 import p5 from "p5";
 import "p5/lib/addons/p5.sound";
 import { Midi } from '@tonejs/midi';
+import initCapture from '@/lib/p5.capture.js';
 
 const base = import.meta.env.BASE_URL || './';
 const audio = base + 'audio/StringsNo1.mp3';
@@ -36,6 +37,8 @@ const sketch = (p) => {
 
   p.preload = () => {
     p.song = p.loadSound(audio, (sound) => {
+      p.audioSampleRate = sound.sampleRate();
+      p.totalAnimationFrames = Math.floor(sound.duration() * 60);
       p.loadMidi();
     });
     p.song.onended(() => {
@@ -48,6 +51,12 @@ const sketch = (p) => {
         console.log('Music By: https://github.com/LABCAT');
         console.log('Animation By: https://github.com/LABCAT');
         console.log('Code Inspiration: https://www.openprocessing.org/sketch/988880');
+      }
+      if (p.captureEnabled && p.captureInProgress) {
+        p.captureInProgress = false;
+        if (p.capturedFrames.length > 0) {
+          p.downloadFramesPart();
+        }
       }
     });
   };
@@ -68,16 +77,18 @@ const sketch = (p) => {
   };
 
   p.setup = () => {
+    p.pixelDensity(1);
     p.createCanvas(p.canvasWidth, p.canvasHeight);
     p.colorMode(p.HSB, 360, 100, 100, 100);
     p.background(0);
     p.strokeWeight(1);
     p.noFill();
     p.blendMode(p.SCREEN);
+    initCapture(p, { prefix: 'StringsNo1', enabled: false, captureCSSBackground: false, maxFramesPerZip: 300 });
   };
 
   p.draw = () => {
-    if (p.song && p.song.isPlaying()) {
+    if (p.captureInProgress || (p.song && p.song.isPlaying())) {
       p.playStrings();
     }
   };
@@ -130,23 +141,22 @@ const sketch = (p) => {
   };
 
   p.mousePressed = () => {
-    if(p.audioLoaded && p.song){
-      if (p.song.isPlaying()) {
+    if(p.audioLoaded){
+      if (p.captureEnabled) {
+        p.startCapture();
+        return;
+      } else if (p.song.isPlaying()) {
         p.song.pause();
-        if (p.canvas) {
-          p.canvas.classList.add('p5Canvas--cursor-play');
-          p.canvas.classList.remove('p5Canvas--cursor-pause');
-        }
+        p.canvas.classList.add('p5Canvas--cursor-play');
+        p.canvas.classList.remove('p5Canvas--cursor-pause');
       } else {
         if (parseInt(p.song.currentTime()) >= parseInt(p.song.buffer.duration)) {
           p.reset();
         }
         document.getElementById("play-icon").classList.remove("fade-in");
         p.song.play();
-        if (p.canvas) {
-          p.canvas.classList.add('p5Canvas--cursor-pause');
-          p.canvas.classList.remove('p5Canvas--cursor-play');
-        }
+        p.canvas.classList.add('p5Canvas--cursor-pause');
+        p.canvas.classList.remove('p5Canvas--cursor-play');
       }
     }
   };

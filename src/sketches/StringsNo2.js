@@ -1,6 +1,7 @@
 import p5 from "p5";
 import "p5/lib/addons/p5.sound";
 import { Midi } from '@tonejs/midi';
+import initCapture from '@/lib/p5.capture.js';
 
 const base = import.meta.env.BASE_URL || './';
 const audio = base + 'audio/StringsNo2.mp3';
@@ -38,8 +39,20 @@ const sketch = (p) => {
   };
 
   p.preload = () => {
-    p.song = p.loadSound(audio, p.loadMidi);
-    p.song.onended(p.logCredits);
+    p.song = p.loadSound(audio, (sound) => {
+      p.audioSampleRate = sound.sampleRate();
+      p.totalAnimationFrames = Math.floor(sound.duration() * 60);
+      p.loadMidi();
+    });
+    p.song.onended(() => {
+      p.logCredits();
+      if (p.captureEnabled && p.captureInProgress) {
+        p.captureInProgress = false;
+        if (p.capturedFrames.length > 0) {
+          p.downloadFramesPart();
+        }
+      }
+    });
   };
 
   p.scheduleCueSet = (noteSet, callbackName, poly = false) => {
@@ -68,10 +81,11 @@ const sketch = (p) => {
     p.ox = p.width / 2;
     p.oy = p.height / 2;
     p.max = p.width > p.height ? p.width : p.height;
+    initCapture(p, { prefix: 'StringsNo2', enabled: false, captureCSSBackground: false, maxFramesPerZip: 100 });
   };
 
   p.draw = () => {
-    if(p.audioLoaded && p.song.isPlaying()){
+    if (p.captureInProgress || (p.audioLoaded && p.song.isPlaying())){
       p.stroke(
         p.lerpColor(p.ca, p.cb, p.abs(p.sin(p.zoff * 100)))
       );
@@ -142,7 +156,10 @@ const sketch = (p) => {
 
   p.mousePressed = () => {
     if(p.audioLoaded){
-      if (p.song.isPlaying()) {
+      if (p.captureEnabled) {
+        p.startCapture();
+        return;
+      } else if (p.song.isPlaying()) {
         p.song.pause();
         p.canvas.classList.add('p5Canvas--cursor-play');
         p.canvas.classList.remove('p5Canvas--cursor-pause');

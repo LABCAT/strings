@@ -5,10 +5,12 @@ export default function initCapture(p, options = {}) {
   const prefix = isOptionsObject ? options.prefix ?? options.captureFilePrefix : options;
   const enabled = isOptionsObject ? !!options.enabled : options !== undefined ? true : p.captureEnabled ?? false;
   const captureCSSBackground = isOptionsObject ? !!options.captureCSSBackground : false;
+  const maxFramesPerZip = isOptionsObject ? (options.maxFramesPerZip ?? 1000) : 1000;
 
   p.captureFilePrefix = prefix || p.captureFilePrefix || 'capture';
   p.captureEnabled = enabled;
   p.captureCSSBackground = captureCSSBackground;
+  p.maxFramesPerZip = maxFramesPerZip;
 
   p.capturedFrames = [];
   p.frameNumber = 0;
@@ -72,8 +74,9 @@ export default function initCapture(p, options = {}) {
 
       await p.captureFrame();
 
-      if (p.capturedFrames.length >= 1500) {
+      if (p.capturedFrames.length >= p.maxFramesPerZip) {
         await p.downloadFramesPart();
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
@@ -95,14 +98,17 @@ export default function initCapture(p, options = {}) {
     
     p.capturedFrames.sort((a, b) => a.frameNumber - b.frameNumber);
     
+    const framesToProcess = [...p.capturedFrames];
+    p.capturedFrames = [];
+    
     const zip = new JSZip();
     
-    for (let i = 0; i < p.capturedFrames.length; i++) {
-      const frame = p.capturedFrames[i];
+    for (let i = 0; i < framesToProcess.length; i++) {
+      const frame = framesToProcess[i];
       zip.file(frame.filename, frame.blob, { binary: true });
       
       if ((i + 1) % 100 === 0) {
-        console.log(`Added ${i + 1} / ${p.capturedFrames.length} frames to part ${p.zipPartNumber}...`);
+        console.log(`Added ${i + 1} / ${framesToProcess.length} frames to part ${p.zipPartNumber}...`);
       }
       frame.blob = null;
     }
@@ -124,6 +130,8 @@ export default function initCapture(p, options = {}) {
       type: 'blob'
     });
     
+    framesToProcess.length = 0;
+    
     const url = URL.createObjectURL(zipBlob);
     const link = document.createElement('a');
     link.href = url;
@@ -131,12 +139,16 @@ export default function initCapture(p, options = {}) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+    
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 100);
 
     console.log(`Downloaded ZIP part ${p.zipPartNumber}`);
     
-    p.capturedFrames = [];
     p.zipPartNumber++;
+    
+    await new Promise(resolve => setTimeout(resolve, 1000));
   };
 
   p.gradientToPng = (cssValue, width, height, blendMode = '') => {
