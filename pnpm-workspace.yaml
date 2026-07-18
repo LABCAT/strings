@@ -3,5 +3,3 @@ allowBuilds:
   esbuild: true
   sharp: true
 minimumReleaseAge: 0
-patchedDependencies:
-  p5.sound@0.2.0: patches/p5.sound@0.2.0.patch

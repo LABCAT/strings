@@ -4,11 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-patchedDependencies:
-  p5.sound@0.2.0:
-    hash: 39236bf4d46070291b4ed61742de38f1c78e3ed9b58f8b26e08f951c81d01bf1
-    path: patches/p5.sound@0.2.0.patch
-
 importers:
 
   .:
@@ -29,8 +24,8 @@ importers:
         specifier: 2.2.3
         version: 2.2.3
       p5.sound:
-        specifier: ^0.2.0
-        version: 0.2.0(patch_hash=39236bf4d46070291b4ed61742de38f1c78e3ed9b58f8b26e08f951c81d01bf1)
+        specifier: ^0.3.0
+        version: 0.3.0
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -1972,8 +1967,8 @@ packages:
     resolution: {integrity: sha512-AxTM2wDGORHGEkPCt8yqxOTMgpfbEHqF51f/5fJCmwFC3C/zNcGT63SymH2ttOAaiIws2zVg4+izQCjrakcwHg==}
     engines: {node: '>=20'}
 
-  p5.sound@0.2.0:
-    resolution: {integrity: sha512-0NDimegAS97BRC/1Hib5btwzZs0GZuC+TGpj5WYzIkjJY2wLmqqvye/jQOkckELIyDwiZa9ywPbl9qenhtrmBg==}
+  p5.sound@0.3.0:
+    resolution: {integrity: sha512-bdfsPNAe838HX/bEOJlp76XS1HRIPbhbSoMvDuYZIj9nkLuRs9A0zVisl7lWVcVDJs37FZQjJbpfXFJQUEDEig==}
 
   p5@2.2.3:
     resolution: {integrity: sha512-jz9uy0k3Fcj9vKSOafQlIrpaPZZjO4rAEBZF6dGkbokisshP0M3aFm4qtLHYCoEW1XJSkFaVaOMILCQAQxUHHA==}
@@ -4409,7 +4404,7 @@ snapshots:
 
   p-timeout@7.0.1: {}
 
-  p5.sound@0.2.0(patch_hash=39236bf4d46070291b4ed61742de38f1c78e3ed9b58f8b26e08f951c81d01bf1):
+  p5.sound@0.3.0:
     dependencies:
       lodash: 4.18.1
       tone: 15.1.22
