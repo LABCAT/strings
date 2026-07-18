@@ -29,10 +29,5 @@
 	"engines": {
 		"node": ">=24.13.0"
 	},
-	"packageManager": "pnpm@11.14.0",
-	"pnpm": {
-		"patchedDependencies": {
-			"p5.sound@0.2.0": "patches/p5.sound@0.2.0.patch"
-		}
-	}
+	"packageManager": "pnpm@11.14.0"
 }
