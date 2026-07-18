@@ -1,0 +1,14 @@
+diff --git a/package.json b/package.json
+index ed9bb5822883a512d3b8a3fe00d5260414dcd9ed..ae1fde233561296af8df46952d957de572892e0c 100644
+--- a/package.json
++++ b/package.json
+@@ -39,5 +39,8 @@
+     "webpack": "^5.91.0",
+     "webpack-cli": "^5.1.4"
+   },
+-  "sideEffects": false
++  "sideEffects": [
++    "dist/p5.sound.js",
++    "dist/p5.sound.min.js"
++  ]
+ }

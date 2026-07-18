@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  p5.sound@0.3.0: 04a352164adb73e959dca4803d68f49f9a4ebacefe5d310097481836a50f92b1
+
 importers:
 
   .:
@@ -25,7 +28,7 @@ importers:
         version: 2.2.3
       p5.sound:
         specifier: ^0.3.0
-        version: 0.3.0
+        version: 0.3.0(patch_hash=04a352164adb73e959dca4803d68f49f9a4ebacefe5d310097481836a50f92b1)
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -4404,7 +4407,7 @@ snapshots:
 
   p-timeout@7.0.1: {}
 
-  p5.sound@0.3.0:
+  p5.sound@0.3.0(patch_hash=04a352164adb73e959dca4803d68f49f9a4ebacefe5d310097481836a50f92b1):
     dependencies:
       lodash: 4.18.1
       tone: 15.1.22
