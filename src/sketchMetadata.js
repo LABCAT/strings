@@ -9,6 +9,11 @@ export const sketchMetadata = {
     description: 'An exploration into generative animations inspired by strings.',
     sketch: 'StringsNo2.js',
   },
+  'number-3': {
+    title: '#StringsNo3',
+    description: 'An exploration into generative animations inspired by strings.',
+    sketch: 'StringsNo3.js',
+  },
 };
 
 export function getAllSketches() {

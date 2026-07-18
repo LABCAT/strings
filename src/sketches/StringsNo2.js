@@ -1,6 +1,6 @@
 import p5 from "p5";
-import "p5/lib/addons/p5.sound";
-import { Midi } from '@tonejs/midi';
+import "@lib/p5.audioReact.js";
+
 
 const base = import.meta.env.BASE_URL || './';
 const audio = base + 'audio/StringsNo2.mp3';
@@ -24,44 +24,20 @@ const sketch = (p) => {
   p.max = 0;
   p.scaleMultiplier = 4;
 
-  p.loadMidi = () => {
-    Midi.fromUrl(midi).then((result) => {
-      console.log(result);
-      const noteSet1 = result.tracks[7].notes;
-      p.scheduleCueSet(noteSet1, 'executeCueSet1');
-      const noteSet2 = result.tracks[2].notes;
-      p.scheduleCueSet(noteSet2, 'executeCueSet2');
-      p.audioLoaded = true;
-      document.getElementById("loader").classList.add("loading--complete");
-      document.getElementById("play-icon").classList.add("fade-in");
-    });
-  };
-
-  p.preload = () => {
-    p.song = p.loadSound(audio, p.loadMidi);
-    p.song.onended(p.logCredits);
-  };
-
-  p.scheduleCueSet = (noteSet, callbackName, poly = false) => {
-    let lastTicks = -1,
-        currentCue = 1;
-    for (let i = 0; i < noteSet.length; i++) {
-      const note = noteSet[i],
-          { ticks, time } = note;
-      if(ticks !== lastTicks || poly){
-        note.currentCue = currentCue;
-        p.song.addCue(time, p[callbackName], note);
-        lastTicks = ticks;
-        currentCue++;
+  p.setup = async () => {
+    await p.loadSong(audio, midi, (midiData) => {
+      if (midiData) {
+        console.log(midiData);
+        const noteSet1 = midiData.tracks[7].notes;
+        p.scheduleCueSet(noteSet1, 'executeCueSet1');
+        const noteSet2 = midiData.tracks[2].notes;
+        p.scheduleCueSet(noteSet2, 'executeCueSet2');
       }
-    }
-  };
+    });
 
-  p.setup = () => {
     p.createCanvas(p.canvasWidth, p.canvasHeight);
     p.colorMode(p.HSB);
     p.angleMode(p.DEGREES);
-    p.background(0, 0, 0);
     p.noFill();
     p.ca = p.color("#0CCBCFAA");
     p.cb = p.color("#FE68B5AA");
@@ -140,70 +116,33 @@ const sketch = (p) => {
     }
   };
 
+  p.resetAnimation = () => {
+    p.zoff = 0;
+    p.scaleMultiplier = 4;
+    p.ox = p.width / 2;
+    p.oy = p.height / 2;
+    p.background(0);
+  };
+
   p.mousePressed = () => {
-    if(p.audioLoaded){
-      if (p.song.isPlaying()) {
-        p.song.pause();
-        p.canvas.classList.add('p5Canvas--cursor-play');
-        p.canvas.classList.remove('p5Canvas--cursor-pause');
-      } else {
-        if (parseInt(p.song.currentTime()) >= parseInt(p.song.buffer.duration)) {
-          p.reset();
-          if (typeof window.dataLayer !== typeof undefined){
-            window.dataLayer.push(
-              { 
-                'event': 'play-animation',
-                'animation': {
-                  'title': document.title,
-                  'location': window.location.href,
-                  'action': 'replaying'
-                }
-              }
-            );
+    p.togglePlayback();
+    if (typeof window.dataLayer !== typeof undefined && !p.hasStarted){
+      window.dataLayer.push(
+        { 
+          'event': 'play-animation',
+          'animation': {
+            'title': document.title,
+            'location': window.location.href,
+            'action': 'start playing'
           }
         }
-        document.getElementById("play-icon").classList.remove("fade-in");
-        p.song.play();
-        p.canvas.classList.add('p5Canvas--cursor-pause');
-        p.canvas.classList.remove('p5Canvas--cursor-play');
-        if (typeof window.dataLayer !== typeof undefined && !p.hasStarted){
-          window.dataLayer.push(
-            { 
-              'event': 'play-animation',
-              'animation': {
-                'title': document.title,
-                'location': window.location.href,
-                'action': 'start playing'
-              }
-            }
-          );
-          p.hasStarted = true;
-        }
-      }
-    }
-  };
-
-  p.logCredits = () => {
-    if (
-      !p.creditsLogged &&
-      parseInt(p.song.currentTime()) >= parseInt(p.song.buffer.duration)
-    ) {
-      p.creditsLogged = true;
-      console.log(
-        "Music By: http://labcat.nz/",
-        "\n",
-        "Animation By: https://github.com/LABCAT/"
       );
-      p.song.stop();
-      if (p.canvas) {
-        p.canvas.classList.add('p5Canvas--cursor-play');
-        p.canvas.classList.remove('p5Canvas--cursor-pause');
-      }
+      p.hasStarted = true;
     }
   };
 
-  p.reset = () => {
-    // Reset animation properties here
+  p.keyPressed = () => {
+    p.saveSketchImage();
   };
 
   p.windowResized = () => {

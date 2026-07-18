@@ -1,20 +1,14 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
-import inject from '@rollup/plugin-inject';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://landscapes.labcat.nz',
+  site: 'https://strings.labcat.nz',
   devToolbar: {
     enabled: false
   },
   base: '/',
   vite: {
-    plugins: [
-      inject({
-        p5: ['p5', 'default'],
-      }),
-    ],
     resolve: {
       alias: {
         '@sketches': '/src/sketches',
@@ -26,6 +20,9 @@ export default defineConfig({
         '@pages': '/src/pages',
         '@': '/src',
       },
+    },
+    optimizeDeps: {
+      exclude: ['p5.sound']
     },
     css: {
       preprocessorOptions: {
