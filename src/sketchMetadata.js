@@ -11,7 +11,7 @@ export const sketchMetadata = {
   },
   'number-3': {
     title: '#StringsNo3',
-    description: 'An exploration into generative animations inspired by strings.',
+    description: 'Ethereal noise strings drifting through 3D space, cued by MIDI.',
     sketch: 'StringsNo3.js',
   },
 };
