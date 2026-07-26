@@ -6,9 +6,8 @@ const audio = base + "audio/StringsNo3.mp3";
 const midi = base + "audio/StringsNo3.mid";
 
 const STRAND_COUNT = 28;
-const STRAND_MAX = 28;
 const POINTS_PER_STRAND = 64;
-/** Ellipsoid size of the string field around the halo center. */
+/** Base ellipsoid size of the string field around the halo center. */
 const HALO_RX = 220;
 const HALO_RY = 140;
 const HALO_RZ = 160;
@@ -17,12 +16,40 @@ const HALO_FOLLOW = 0.1;
 const TIMPANI_MIDI_MAX = 53;
 const STRAND_EASE = 0.045;
 const EXPAND_MIN_SEC = 0.2;
-const STAR_COUNT = 90;
 const STAR_POINTS = 10;
 const STAR_SHELL_MIN = 580;
 const STAR_SHELL_MAX = 1200;
 /** Bright tip / leading glow on main strings. Flip to compare. */
 const GLOWING_HEAD = false;
+/** Track1 fires once per bar: phrase1 = 16, phrase2 = 19 (last 4 held). */
+const PHRASE1_BARS = 16;
+const TOTAL_BARS = 35;
+const HOLD_BARS = 4;
+
+function clamp01(v) {
+  return Math.max(0, Math.min(1, v));
+}
+
+function smooth01(t) {
+  t = clamp01(t);
+  return t * t * (3 - 2 * t);
+}
+
+function getSongArc(bar) {
+  const b = Math.max(1, Math.min(TOTAL_BARS, bar | 0));
+  const phrase = b <= PHRASE1_BARS ? 1 : 2;
+  const isHold = b > TOTAL_BARS - HOLD_BARS;
+  const dramaBars = TOTAL_BARS - HOLD_BARS;
+  let progress = smooth01((b - 1) / Math.max(1, dramaBars - 1));
+  if (isHold) {
+    const holdI = (b - (dramaBars + 1)) / Math.max(1, HOLD_BARS - 1);
+    progress = 1 - smooth01(holdI) * 0.55;
+  }
+  let energy = progress;
+  if (phrase === 2 && !isHold) energy = Math.min(1, progress * 0.82 + 0.28);
+  if (isHold) energy *= 0.55;
+  return { bar: b, phrase, isHold, progress, energy };
+}
 
 function hsbToRgb(h, s, b) {
   h = ((h % 360) + 360) % 360;
@@ -47,13 +74,45 @@ function hsbToRgb(h, s, b) {
   ];
 }
 
-function generateUniverseGradient(rng = Math.random, { bright = false } = {}) {
-  const hue = rng() * 360;
+function generateUniverseGradient(rng = Math.random, {
+  bright = false,
+  hueBase = 210,
+  aurora = 0,
+  hueSeed = 0,
+} = {}) {
+  // Radial-first background. "Aurora" here only means late-piece richness:
+  // brighter core, wider falloff, and optional soft secondary radials — no linear bands.
+  const base = (hueBase + hueSeed + 360) % 360;
+  const a = Math.max(0, Math.min(1, aurora));
   const boost = bright ? 18 : 0;
-  const [r1, g1, b1] = hsbToRgb(hue, 70 + rng() * 25, Math.min(100, 70 + rng() * 30 + boost));
-  const [r2, g2, b2] = hsbToRgb((hue + 30 + rng() * 40) % 360, 65 + rng() * 25, Math.min(100, 35 + rng() * 25 + boost * 0.5));
-  const [r3, g3, b3] = hsbToRgb((hue + 180 + rng() * 40) % 360, 50 + rng() * 30, 6 + rng() * 12);
-  return `radial-gradient(ellipse at var(--halo-cx, 50%) var(--halo-cy, 52%), rgb(${r1}, ${g1}, ${b1}) 0%, rgb(${r2}, ${g2}, ${b2}) 42%, rgb(${r3}, ${g3}, ${b3}) 100%)`;
+  const satBoost = bright ? 10 : 0;
+
+  const hue = (base + rng() * 40 - 12 + 360) % 360;
+  const [r1, g1, b1] = hsbToRgb(hue, 55 + rng() * 25 + satBoost, Math.min(100, 58 + rng() * 28 + boost + a * 12));
+  const [r2, g2, b2] = hsbToRgb((hue + 25 + rng() * 35) % 360, 50 + rng() * 25 + satBoost * 0.5, Math.min(100, 28 + rng() * 22 + boost * 0.5 + a * 8));
+  const [r3, g3, b3] = hsbToRgb((hue + 170 + rng() * 40) % 360, 35 + rng() * 25, 4 + rng() * 10);
+
+  const midStop = Math.round(38 + a * 12);
+  const layers = [
+    `radial-gradient(ellipse at var(--halo-cx, 50%) var(--halo-cy, 52%), rgb(${r1}, ${g1}, ${b1}) 0%, rgb(${r2}, ${g2}, ${b2}) ${midStop}%, rgb(${r3}, ${g3}, ${b3}) 100%)`,
+  ];
+
+  // Soft companion glow(s) — still radial, just off-center. Grows with the arc.
+  const companions = a > 0.2 ? 1 + Math.floor(a * 2) : 0;
+  for (let i = 0; i < companions; i++) {
+    const ch = (hue + 50 + i * 70 + rng() * 40) % 360;
+    const [cr, cg, cb] = hsbToRgb(ch, 60 + rng() * 25, Math.min(100, 55 + rng() * 30 + boost * 0.4));
+    const alpha = (0.12 + rng() * 0.14) * a;
+    const ox = 18 + rng() * 64;
+    const oy = 16 + rng() * 68;
+    const rx = 28 + rng() * 40;
+    const ry = 18 + rng() * 28;
+    layers.unshift(
+      `radial-gradient(ellipse ${rx.toFixed(0)}% ${ry.toFixed(0)}% at ${ox.toFixed(0)}% ${oy.toFixed(0)}%, rgba(${cr}, ${cg}, ${cb}, ${alpha.toFixed(3)}) 0%, rgba(${cr}, ${cg}, ${cb}, 0) 70%)`
+    );
+  }
+
+  return layers.join(", ");
 }
 
 function pickHaloTarget(p) {
@@ -114,15 +173,15 @@ function ensureTimpaniFlash() {
         pointer-events: none;
         opacity: 0;
         background:
-          radial-gradient(circle at 50% 45%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.1) 32%, transparent 65%),
-          radial-gradient(circle at 50% 50%, rgba(255,255,255,0.16) 0%, transparent 72%);
+          radial-gradient(circle at 50% 45%, rgba(255,255,255,var(--timpani-peak, 0.45)) 0%, rgba(255,255,255,var(--timpani-mid, 0.1)) 32%, transparent 65%),
+          radial-gradient(circle at 50% 50%, rgba(255,255,255,var(--timpani-soft, 0.16)) 0%, transparent 72%);
       }
       #timpani-flash.is-on {
-        animation: timpaniFlash 1.4s ease-out;
+        animation: timpaniFlash var(--timpani-dur, 1.4s) ease-out;
       }
       @keyframes timpaniFlash {
-        0% { opacity: 0.85; }
-        25% { opacity: 0.5; }
+        0% { opacity: var(--timpani-opacity, 0.85); }
+        25% { opacity: calc(var(--timpani-opacity, 0.85) * 0.55); }
         100% { opacity: 0; }
       }
     `;
@@ -154,6 +213,8 @@ const sketch = (p) => {
   p.strands = [];
   p.stars = [];
   p.starShimmer = 0;
+  p.starRefresh = null;
+  p.starDriftMul = 1;
   p.t = 0;
   p.cameraAngle = 0;
   p.cameraRadius = 900;
@@ -162,6 +223,16 @@ const sketch = (p) => {
   p.halo = { x: 0, y: 0, z: 0 };
   p.haloCss = { cx: 50, cy: 52 };
   p.haloCssTarget = { cx: 50, cy: 52 };
+  p.haloScale = 0.7;
+  p.haloScaleTarget = 0.7;
+  p.hueFamily = 205;
+  p.hueSeed = Math.floor(Math.random() * 360);
+  p.auroraAmount = 0;
+  p.bar = 0;
+  p.arc = getSongArc(1);
+  p.orbitRate = 0.0022;
+  p.motionEase = STRAND_EASE;
+  p.expandPow = 1.1;
 
   p.setup = async () => {
     p.pixelDensity(1);
@@ -173,11 +244,12 @@ const sketch = (p) => {
     p.cameraRadius = Math.max(p.width, p.height) * 0.22;
     p.perspective(p.PI / 2.4, p.width / p.height, 1, 5000);
     ensureTimpaniFlash();
+    p.applySongArc(1);
     p.applyUniverseGradient();
     document.documentElement.style.setProperty("--play-icon-color", "#ffffffcc");
     p.clear();
     p.seedStrands(STRAND_COUNT);
-    p.seedStars(STAR_COUNT);
+    p.seedStars(p.starCountForArc());
 
     await p.loadSong(audio, midi, (midiData) => {
       if (!midiData) return;
@@ -205,15 +277,66 @@ const sketch = (p) => {
     });
   };
 
+  p.applySongArc = (bar) => {
+    p.bar = bar;
+    const arc = getSongArc(bar);
+    p.arc = arc;
+    const { energy, isHold, progress } = arc;
+
+    // Cool → violet → warm across the piece, offset by a per-session seed.
+    p.hueFamily = (205 + progress * 155 + (p.hueSeed || 0) + 360) % 360;
+    // Aurora emerges mid–phrase 1 and swells toward the peak.
+    p.auroraAmount = smooth01((progress - 0.12) / 0.75) * (isHold ? 0.85 : 1);
+
+    if (isHold) {
+      p.haloScaleTarget = 1.05;
+      p.orbitRate = 0.0009;
+      p.motionEase = 0.018;
+      p.expandPow = 1.35;
+      p.starDriftMul = 0.08;
+      p.veilOpacity = p.baseVeilOpacity + 0.08;
+    } else {
+      p.haloScaleTarget = p.lerp(0.62, 1.42, energy);
+      p.orbitRate = p.lerp(0.0016, 0.0034, energy);
+      p.motionEase = p.lerp(0.028, 0.07, energy);
+      p.expandPow = p.lerp(1.25, 0.55, energy);
+      p.starDriftMul = p.lerp(0.55, 1.35, energy);
+      p.veilOpacity = p.baseVeilOpacity - energy * 0.14;
+    }
+
+    // Phrase-2 seam: open the field and shift into a fresh palette chapter.
+    if (bar === PHRASE1_BARS + 1) {
+      p.haloScaleTarget = Math.max(p.haloScaleTarget, 1.28);
+      p.orbitRate = Math.max(p.orbitRate, 0.0028);
+      p.hueSeed = (p.hueSeed + p.random(70, 150)) % 360;
+      p.hueFamily = (205 + progress * 155 + p.hueSeed + 360) % 360;
+    }
+
+    return arc;
+  };
+
+  p.starCountForArc = () => {
+    const { energy, isHold } = p.arc || getSongArc(1);
+    if (isHold) return Math.floor(p.lerp(50, 70, energy));
+    return Math.floor(p.lerp(45, 130, energy));
+  };
+
   p.applyUniverseGradient = ({ bright = false, moveHalo = true } = {}) => {
     if (moveHalo) {
       p.haloCssTarget = pickHaloTarget(p);
     }
     const veil = `linear-gradient(rgba(0,0,0,${p.veilOpacity}), rgba(0,0,0,${p.veilOpacity}))`;
-    const bg = `${veil}, ${generateUniverseGradient(Math.random, { bright })}`;
-    document.documentElement.style.setProperty("--gradient-bg", bg);
-    document.documentElement.style.setProperty("--halo-cx", `${p.haloCss.cx}%`);
-    document.documentElement.style.setProperty("--halo-cy", `${p.haloCss.cy}%`);
+    const bg = `${veil}, ${generateUniverseGradient(Math.random, {
+      bright,
+      hueBase: p.hueFamily,
+      aurora: p.auroraAmount || 0,
+      hueSeed: p.hueSeed || 0,
+    })}`;
+    const root = document.documentElement.style;
+    root.setProperty("--gradient-bg", bg);
+    root.setProperty("--halo-cx", `${p.haloCss.cx}%`);
+    root.setProperty("--halo-cy", `${p.haloCss.cy}%`);
+    root.setProperty("--gradient-blend-mode", "normal");
   };
 
   // Coalesce rapid MIDI-driven style updates onto one rAF to avoid main-thread stalls.
@@ -228,11 +351,19 @@ const sketch = (p) => {
     });
   };
 
-  p.triggerTimpaniFlash = () => {
+  p.triggerTimpaniFlash = (intensity = 0.55) => {
     const flash = ensureTimpaniFlash();
+    const peak = 0.28 + intensity * 0.55;
+    const root = document.documentElement.style;
+    root.setProperty("--timpani-peak", `${peak}`);
+    root.setProperty("--timpani-mid", `${0.06 + intensity * 0.16}`);
+    root.setProperty("--timpani-soft", `${0.08 + intensity * 0.14}`);
+    root.setProperty("--timpani-opacity", `${0.45 + intensity * 0.5}`);
+    root.setProperty("--timpani-dur", `${p.lerp(1.8, 1.05, intensity)}s`);
     flash.classList.remove("is-on");
     void flash.offsetWidth;
     flash.classList.add("is-on");
+    p.veilOpacity = Math.max(0.28, p.veilOpacity - intensity * 0.18);
     p.queueUniverseGradient({ bright: true, moveHalo: true });
   };
 
@@ -246,10 +377,11 @@ const sketch = (p) => {
 
     p.haloCss.cx = p.lerp(p.haloCss.cx, p.haloCssTarget.cx, HALO_FOLLOW);
     p.haloCss.cy = p.lerp(p.haloCss.cy, p.haloCssTarget.cy, HALO_FOLLOW);
+    p.haloScale = p.lerp(p.haloScale, p.haloScaleTarget, 0.06);
     document.documentElement.style.setProperty("--halo-cx", `${p.haloCss.cx}%`);
     document.documentElement.style.setProperty("--halo-cy", `${p.haloCss.cy}%`);
 
-    p.cameraAngle += 0.0022;
+    p.cameraAngle += p.orbitRate;
     const radius = p.cameraRadius + Math.sin(p.t * 0.3) * 25;
     const eyeX = Math.cos(p.cameraAngle) * radius;
     const eyeY = Math.sin(p.cameraAngle * 0.35) * 90;
@@ -294,6 +426,7 @@ const sketch = (p) => {
 
   p.executeTrack1 = (note) => {
     const { currentCue, midi: pitch } = note;
+    const arc = p.applySongArc(currentCue);
     const durationSec = Math.max(EXPAND_MIN_SEC, note.duration || 0.5);
 
     const batch = [];
@@ -310,18 +443,41 @@ const sketch = (p) => {
       beginStrandExpand(p, item.strand, item.anchor, center, item.pitch, durationSec);
     }
 
-    if (currentCue % 24 === 0 && p.strands.length < STRAND_MAX) {
-      p.strands.push(createStrand(p));
+    // Phrase-2 seam: wipe stars into a denser field.
+    if (currentCue === PHRASE1_BARS + 1) {
+      p.seedStars(p.starCountForArc());
+      p.starRefresh = { v: 0 };
+      p.queueUniverseGradient({ bright: true, moveHalo: true });
+    } else if (arc.isHold && currentCue === TOTAL_BARS - HOLD_BARS + 1) {
+      // Enter release: quieter starfield, locked drift.
+      p.seedStars(p.starCountForArc());
+      p.starRefresh = { v: 0 };
+      p.queueUniverseGradient({ bright: false, moveHalo: false });
+    } else {
+      p.queueUniverseGradient();
     }
-
-    p.queueUniverseGradient();
   };
 
   p.executeTimpani = (note) => {
-    p.triggerTimpaniFlash();
-    p.starShimmer = 1;
-    p.seedStars(STAR_COUNT);
+    // Intensity follows the latest Track1 bar arc (timpani cues have their own index).
+    const arc = p.arc || p.applySongArc(p.bar || 1);
+    const intensity = arc.isHold ? 0.35 : 0.4 + arc.energy * 0.6;
+    p.triggerTimpaniFlash(intensity);
+    p.starShimmer = 0.55 + intensity * 0.55;
+    p.seedStars(p.starCountForArc());
     p.starRefresh = { v: 0 };
+
+    // Late-piece timpani: brief outward kick on the string field.
+    if (!arc.isHold && arc.energy > 0.45) {
+      const kick = 1 + intensity * 0.22;
+      for (let i = 0; i < p.strands.length; i++) {
+        const s = p.strands[i];
+        s.tx *= kick;
+        s.ty *= kick;
+        s.tz *= kick;
+        s.tspread = Math.min(s.tspread * (1 + intensity * 0.2), HALO_RX * 0.7 * p.haloScale);
+      }
+    }
   };
 
   p.resetAnimation = () => {
@@ -329,12 +485,20 @@ const sketch = (p) => {
     p.cameraAngle = 0;
     p.starShimmer = 0;
     p.starRefresh = null;
+    p.starDriftMul = 1;
     p.halo = { x: 0, y: 0, z: 0 };
     p.haloCss = { cx: 50, cy: 52 };
     p.haloCssTarget = { cx: 50, cy: 52 };
+    p.haloScale = 0.7;
+    p.haloScaleTarget = 0.7;
+    p.hueFamily = 205;
+    p.hueSeed = Math.floor(Math.random() * 360);
+    p.auroraAmount = 0;
+    p.bar = 0;
+    p.applySongArc(1);
     p.applyUniverseGradient({ moveHalo: true });
     p.seedStrands(STRAND_COUNT);
-    p.seedStars(STAR_COUNT);
+    p.seedStars(p.starCountForArc());
     p.clear();
   };
 
@@ -345,7 +509,7 @@ const sketch = (p) => {
     }
   };
 
-  p.seedStars = (count) => {
+  p.seedStars = (count = p.starCountForArc()) => {
     p.stars = [];
     for (let i = 0; i < count; i++) {
       p.stars.push(createStar(p));
@@ -389,15 +553,20 @@ function randomInHalo(p) {
     y = p.random(-1, 1);
     z = p.random(-1, 1);
   } while (x * x + y * y + z * z > 1);
+  const scale = p.haloScale ?? 1;
   return {
-    x: x * HALO_RX,
-    y: y * HALO_RY,
-    z: z * HALO_RZ,
+    x: x * HALO_RX * scale,
+    y: y * HALO_RY * scale,
+    z: z * HALO_RZ * scale,
   };
 }
 
 function randomHaloSpread(p) {
-  return p.random(HALO_RX * 0.18, HALO_RX * 0.42);
+  const scale = p.haloScale ?? 1;
+  const energy = p.arc?.energy ?? 0.3;
+  const lo = HALO_RX * p.lerp(0.12, 0.2, energy) * scale;
+  const hi = HALO_RX * p.lerp(0.28, 0.52, energy) * scale;
+  return p.random(lo, hi);
 }
 
 function centroidOf(points) {
@@ -415,8 +584,10 @@ function centroidOf(points) {
 
 function createStrand(p) {
   const { x: ox, y: oy, z: oz } = randomInHalo(p);
-  const hue = p.random(160, 320);
+  const family = p.hueFamily ?? 205;
+  const hue = (family + p.random(-30, 30) + 360) % 360;
   const spread = randomHaloSpread(p);
+  const energy = p.arc?.energy ?? 0.25;
   return {
     ox,
     oy,
@@ -440,13 +611,18 @@ function createStrand(p) {
     fromSpread: spread,
     points: POINTS_PER_STRAND,
     pts: new Float32Array(POINTS_PER_STRAND * 3),
-    drift: p.random(0.01, 0.018),
+    drift: p.random(0.012, 0.022) * p.lerp(1.05, 1.75, energy),
     phase: p.random(p.TWO_PI),
   };
 }
 
 function beginStrandExpand(p, strand, anchor, center, pitch = 60, durationSec = 0.5) {
-  const hue = p.map(pitch % 24, 0, 24, 160, 330) + p.random(-25, 25);
+  const energy = p.arc?.energy ?? 0.3;
+  const isHold = !!p.arc?.isHold;
+  const family = p.hueFamily ?? 205;
+  const pitchNudge = p.map(pitch % 24, 0, 24, -18, 18);
+  const hueSpread = p.lerp(18, 42, energy);
+  const hue = (family + pitchNudge + p.random(-hueSpread, hueSpread) + 360) % 360;
   const spread = randomHaloSpread(p);
 
   strand.fromX = center.x;
@@ -459,24 +635,27 @@ function beginStrandExpand(p, strand, anchor, center, pitch = 60, durationSec = 
   strand.ty = anchor.y;
   strand.tz = anchor.z;
   strand.expandStart = p.getSongPlaybackTime?.() ?? p.millis() / 1000;
-  strand.expandDur = durationSec;
+  strand.expandDur = isHold ? Math.max(durationSec * 1.35, 0.8) : durationSec;
   strand.nx = p.random(100);
   strand.ny = p.random(100);
   strand.nz = p.random(100);
   strand.fromHue = strand.hue;
   strand.thue = hue;
-  strand.fromSpread = spread * 0.12;
+  strand.fromSpread = spread * p.lerp(0.18, 0.06, energy);
   strand.spread = strand.fromSpread;
   strand.tspread = spread;
-  strand.drift = p.random(0.01, 0.02);
+  strand.drift = p.random(0.012, 0.024) * (isHold ? 0.55 : p.lerp(1.05, 1.9, energy));
   strand.phase = p.random(p.TWO_PI);
 }
 
 function easeStrand(p, strand) {
+  const ease = p.motionEase ?? STRAND_EASE;
+  const pow = p.expandPow ?? 1;
   if (strand.expandDur > 0) {
     const now = p.getSongPlaybackTime?.() ?? p.millis() / 1000;
     const u = Math.min(1, Math.max(0, (now - strand.expandStart) / strand.expandDur));
-    const e = u * u * (3 - 2 * u);
+    const shaped = Math.pow(u, pow);
+    const e = shaped * shaped * (3 - 2 * shaped);
     strand.ox = p.lerp(strand.fromX, strand.tx, e);
     strand.oy = p.lerp(strand.fromY, strand.ty, e);
     strand.oz = p.lerp(strand.fromZ, strand.tz, e);
@@ -486,11 +665,11 @@ function easeStrand(p, strand) {
     return;
   }
 
-  strand.ox = p.lerp(strand.ox, strand.tx, STRAND_EASE);
-  strand.oy = p.lerp(strand.oy, strand.ty, STRAND_EASE);
-  strand.oz = p.lerp(strand.oz, strand.tz, STRAND_EASE);
-  strand.spread = p.lerp(strand.spread, strand.tspread, STRAND_EASE);
-  strand.hue = lerpHue(strand.hue, strand.thue, STRAND_EASE);
+  strand.ox = p.lerp(strand.ox, strand.tx, ease);
+  strand.oy = p.lerp(strand.oy, strand.ty, ease);
+  strand.oz = p.lerp(strand.oz, strand.tz, ease);
+  strand.spread = p.lerp(strand.spread, strand.tspread, ease);
+  strand.hue = lerpHue(strand.hue, strand.thue, ease);
 }
 
 function lerpHue(from, to, amt) {
@@ -500,6 +679,8 @@ function lerpHue(from, to, amt) {
 
 function createStar(p) {
   // Camera-local skybox coords — locked to view so orbit doesn't slide them all left.
+  const energy = p.arc?.energy ?? 0.3;
+  const isHold = !!p.arc?.isHold;
   const u = p.random();
   const v = p.random();
   const theta = u * p.TWO_PI;
@@ -511,11 +692,12 @@ function createStar(p) {
   let dy = p.random(-1, 1);
   let dz = p.random(-1, 1);
   const dl = Math.hypot(dx, dy, dz) || 1;
-  const speed = p.random(55, 120);
+  const speed = p.random(55, 120) * (isHold ? 0.15 : p.lerp(0.65, 1.25, energy));
   dx = (dx / dl) * speed;
   dy = (dy / dl) * speed;
   dz = (dz / dl) * speed;
-  const noiseRate = p.random(0.22, 0.55);
+  const noiseRate = p.random(0.22, 0.55) * (isHold ? 0.2 : p.lerp(0.7, 1.3, energy));
+  const family = p.hueFamily ?? 220;
   return {
     lx: r * sinPhi * Math.cos(theta),
     ly: r * sinPhi * Math.sin(theta) * 0.7,
@@ -523,9 +705,9 @@ function createStar(p) {
     dx,
     dy,
     dz,
-    amp: p.random(12, 30),
-    hue: p.random(180, 300),
-    alpha: p.random(28, 55),
+    amp: p.random(12, 30) * p.lerp(0.85, 1.2, energy),
+    hue: (family + p.random(-40, 40) + 360) % 360,
+    alpha: p.random(22, 48) * p.lerp(0.75, 1.35, energy),
     nx: p.random(100),
     ny: p.random(100),
     nz: p.random(100),
@@ -533,7 +715,7 @@ function createStar(p) {
     dny: p.random(-1, 1) > 0 ? noiseRate * p.random(0.7, 1.4) : -noiseRate * p.random(0.7, 1.4),
     dnz: p.random(-1, 1) > 0 ? noiseRate * p.random(0.7, 1.4) : -noiseRate * p.random(0.7, 1.4),
     phase: p.random(p.TWO_PI),
-    phaseDrift: p.random(-0.45, 0.45),
+    phaseDrift: p.random(-0.45, 0.45) * (isHold ? 0.1 : 1),
     pts: new Float32Array(STAR_POINTS * 3),
   };
 }
@@ -564,22 +746,23 @@ function drawStars(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ) {
   const shimmer = p.starShimmer;
   const vis = p.starRefresh ? Math.max(0, Math.min(1, p.starRefresh.v)) : 1;
   if (vis <= 0) return;
+  const driftMul = p.starDriftMul ?? 1;
   p.strokeWeight(1.5);
   for (let s = 0; s < stars.length; s++) {
     const star = stars[s];
     const amp = star.amp;
     const amp2 = amp * 2;
     const pts = star.pts;
-    const nx = star.nx + t * star.dnx;
-    const ny = star.ny + t * star.dny;
-    const nz = star.nz + t * star.dnz;
-    const lx = star.lx + t * star.dx;
-    const ly = star.ly + t * star.dy;
-    const lz = star.lz + t * star.dz;
+    const nx = star.nx + t * star.dnx * driftMul;
+    const ny = star.ny + t * star.dny * driftMul;
+    const nz = star.nz + t * star.dnz * driftMul;
+    const lx = star.lx + t * star.dx * driftMul;
+    const ly = star.ly + t * star.dy * driftMul;
+    const lz = star.lz + t * star.dz * driftMul;
     const ox = lookX + rx * lx + ux * ly + fx * lz;
     const oy = lookY + ry * lx + uy * ly + fy * lz;
     const oz = lookZ + rz * lx + uz * ly + fz * lz;
-    const phase = star.phase + t * star.phaseDrift;
+    const phase = star.phase + t * star.phaseDrift * driftMul;
 
     for (let i = 0; i < STAR_POINTS; i++) {
       const u = i * 0.11 + phase;
@@ -659,14 +842,28 @@ function drawStrand(p, strand, hx, hy, hz) {
     return;
   }
 
-  p.strokeWeight(2);
-  p.stroke(hue, 30, 100, 70);
+  // Two-pass additive glow (halo + core) — more passes tank WEBGL fill rate.
+  const energy = p.arc?.energy ?? 0.3;
+  const glowW = p.lerp(5, 8, energy);
+
+  p.strokeWeight(glowW);
+  p.stroke(hue, 45, 100, 10);
   p.beginShape();
   for (let i = 0; i < n; i++) {
     const i3 = i * 3;
     p.vertex(pts[i3], pts[i3 + 1], pts[i3 + 2]);
   }
   p.endShape();
+
+  p.strokeWeight(1.6);
+  p.stroke(hue, 18, 100, 85);
+  p.beginShape();
+  for (let i = 0; i < n; i++) {
+    const i3 = i * 3;
+    p.vertex(pts[i3], pts[i3 + 1], pts[i3 + 2]);
+  }
+  p.endShape();
+  p.strokeWeight(2);
 }
 
 new p5(sketch);
