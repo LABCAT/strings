@@ -13,8 +13,8 @@ const HALO_RX = 220;
 const HALO_RY = 140;
 const HALO_RZ = 160;
 const HALO_FOLLOW = 0.1;
-/** Combinator keyzone guess: lowest Touch Orchestra pitches (48/52). Confirm by ear. */
-const TIMPANI_MIDI_MAX = 52;
+/** Touch Orchestra timpani keyzone: midi <= 53. */
+const TIMPANI_MIDI_MAX = 53;
 const STRAND_EASE = 0.045;
 const EXPAND_MIN_SEC = 0.2;
 const STAR_COUNT = 90;
@@ -110,7 +110,7 @@ function ensureTimpaniFlash() {
       #timpani-flash {
         position: fixed;
         inset: 0;
-        z-index: 0;
+        z-index: 2;
         pointer-events: none;
         opacity: 0;
         background:
@@ -170,7 +170,7 @@ const sketch = (p) => {
     p.colorMode(p.HSB, 360, 100, 100, 100);
     p.noFill();
     p.strokeWeight(2);
-    p.cameraRadius = Math.max(p.width, p.height) * 0.12;
+    p.cameraRadius = Math.max(p.width, p.height) * 0.22;
     p.perspective(p.PI / 2.4, p.width / p.height, 1, 5000);
     ensureTimpaniFlash();
     p.applyUniverseGradient();
@@ -231,9 +231,8 @@ const sketch = (p) => {
   p.triggerTimpaniFlash = () => {
     const flash = ensureTimpaniFlash();
     flash.classList.remove("is-on");
-    requestAnimationFrame(() => {
-      flash.classList.add("is-on");
-    });
+    void flash.offsetWidth;
+    flash.classList.add("is-on");
     p.queueUniverseGradient({ bright: true, moveHalo: true });
   };
 
@@ -273,6 +272,10 @@ const sketch = (p) => {
     p.camera(eyeX, eyeY, eyeZ, lookX, lookY, lookZ, 0, 1, 0);
 
     p.starShimmer = Math.max(0, p.starShimmer - 0.012);
+    if (p.starRefresh) {
+      p.starRefresh.v += 0.045;
+      if (p.starRefresh.v >= 1) p.starRefresh = null;
+    }
     drawStars(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ);
 
     const strands = p.strands;
@@ -317,12 +320,15 @@ const sketch = (p) => {
   p.executeTimpani = (note) => {
     p.triggerTimpaniFlash();
     p.starShimmer = 1;
+    p.seedStars(STAR_COUNT);
+    p.starRefresh = { v: 0 };
   };
 
   p.resetAnimation = () => {
     p.t = 0;
     p.cameraAngle = 0;
     p.starShimmer = 0;
+    p.starRefresh = null;
     p.halo = { x: 0, y: 0, z: 0 };
     p.haloCss = { cx: 50, cy: 52 };
     p.haloCssTarget = { cx: 50, cy: 52 };
@@ -556,6 +562,8 @@ function drawStars(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ) {
   const stars = p.stars;
   const t = p.t;
   const shimmer = p.starShimmer;
+  const vis = p.starRefresh ? Math.max(0, Math.min(1, p.starRefresh.v)) : 1;
+  if (vis <= 0) return;
   p.strokeWeight(1.5);
   for (let s = 0; s < stars.length; s++) {
     const star = stars[s];
@@ -582,7 +590,7 @@ function drawStars(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ) {
     }
 
     const pulse = 0.85 + 0.15 * Math.sin(t * 1.7 + star.phase);
-    const alpha = (star.alpha + shimmer * 28) * pulse;
+    const alpha = (star.alpha + shimmer * 28) * pulse * vis;
     p.stroke(star.hue, 22, 100, alpha);
     p.beginShape();
     for (let i = 0; i < STAR_POINTS; i++) {
