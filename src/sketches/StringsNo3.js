@@ -23,8 +23,6 @@ const EXPAND_MIN_SEC = 0.2;
 const STAR_POINTS = 10;
 const STAR_SHELL_MIN = 580;
 const STAR_SHELL_MAX = 1200;
-/** Bright tip / leading glow on main strings. Flip to compare. */
-const GLOWING_HEAD = false;
 /** Track1 fires once per bar: phrase1 = 16, phrase2 = 19 (last 4 held). */
 const PHRASE1_BARS = 16;
 const TOTAL_BARS = 35;
@@ -250,7 +248,7 @@ const sketch = (p) => {
     p.colorMode(p.HSB, 360, 100, 100, 100);
     p.noFill();
     p.strokeWeight(2);
-    p.cameraRadius = Math.max(p.width, p.height) * 0.22;
+    p.cameraRadius = Math.max(p.width, p.height) * 0.35;
     p.perspective(p.PI / 2.4, p.width / p.height, 1, 5000);
     ensureTimpaniFlash();
     p.applySongArc(1);
@@ -304,11 +302,11 @@ const sketch = (p) => {
       p.expandPow = 1.35;
       p.veilOpacity = p.baseVeilOpacity + 0.08;
     } else {
-      p.haloScaleTarget = p.lerp(0.62, 1.42, energy);
-      p.orbitRate = p.lerp(0.0016, 0.0034, energy);
-      p.motionEase = p.lerp(0.028, 0.07, energy);
-      p.expandPow = p.lerp(1.25, 0.55, energy);
-      p.veilOpacity = p.baseVeilOpacity - energy * 0.14;
+      p.haloScaleTarget = p.lerp(0.58, 1.15, energy);
+      p.orbitRate = p.lerp(0.0012, 0.005, Math.pow(energy, 1.5));
+      p.motionEase = p.lerp(0.02, 0.12, energy);
+      p.expandPow = p.lerp(1.3, 0.4, energy);
+      p.veilOpacity = p.baseVeilOpacity - energy * 0.22;
     }
 
     // Phrase-2 seam: open the field and shift into a fresh palette chapter.
@@ -385,7 +383,7 @@ const sketch = (p) => {
 
     // Late-piece timpani: brief outward kick on the string field.
     if (!arc.isHold && arc.energy > 0.45) {
-      const kick = 1 + intensity * 0.22;
+      const kick = 1 + intensity * 0.45;
       for (let i = 0; i < p.strands.length; i++) {
         const s = p.strands[i];
         if (s.localX != null) {
@@ -585,7 +583,7 @@ const sketch = (p) => {
     p.canvasWidth = window.innerWidth;
     p.canvasHeight = window.innerHeight;
     p.resizeCanvas(p.canvasWidth, p.canvasHeight);
-    p.cameraRadius = Math.max(p.width, p.height) * 0.52;
+    p.cameraRadius = Math.max(p.width, p.height) * 0.35;
     p.perspective(p.PI / 2.4, p.width / p.height, 1, 5000);
   };
 };
@@ -709,8 +707,12 @@ function beginStrandExpand(p, strand, anchor, center, pitch = 60, durationSec = 
   const isHold = !!p.arc?.isHold;
   const family = p.hueFamily ?? 205;
   const pitchNudge = p.map(pitch % 24, 0, 24, -18, 18);
-  const hueSpread = p.lerp(18, 42, energy);
-  const hue = (family + pitchNudge + p.random(-hueSpread, hueSpread) + 360) % 360;
+  const hueSpread = p.lerp(18, 50, energy);
+  let hue = (family + pitchNudge + p.random(-hueSpread, hueSpread) + 360) % 360;
+  // Introduce a complementary color burst at high energy (e.g. orange/gold against blue)
+  if (!isHold && energy > 0.6 && p.random() < (energy - 0.6) * 1.5) {
+      hue = (hue + 180 + p.random(-20, 20)) % 360;
+  }
   const spread = randomHaloSpread(p);
 
   strand.fromX = center.x;
@@ -900,48 +902,15 @@ function drawStrand(p, strand, hx, hy, hz) {
   }
 
   const hue = strand.hue;
-  if (GLOWING_HEAD) {
-    // Soft full string body
-    p.strokeWeight(1.4);
-    p.stroke(hue, 28, 100, 36);
-    p.beginShape();
-    for (let i = 0; i < n; i++) {
-      const i3 = i * 3;
-      p.vertex(pts[i3], pts[i3 + 1], pts[i3 + 2]);
-    }
-    p.endShape();
-
-    // Brighter leading half
-    const mid = Math.max(10, Math.floor(n * 0.4));
-    p.strokeWeight(1.9);
-    p.stroke(hue, 18, 100, 68);
-    p.beginShape();
-    for (let i = 0; i < mid; i++) {
-      const i3 = i * 3;
-      p.vertex(pts[i3], pts[i3 + 1], pts[i3 + 2]);
-    }
-    p.endShape();
-
-    // Glowing head
-    const tip = Math.max(5, Math.floor(n * 0.12));
-    p.strokeWeight(2.6);
-    p.stroke(hue, 6, 100, 95);
-    p.beginShape();
-    for (let i = 0; i < tip; i++) {
-      const i3 = i * 3;
-      p.vertex(pts[i3], pts[i3 + 1], pts[i3 + 2]);
-    }
-    p.endShape();
-    p.strokeWeight(2);
-    return;
-  }
-
-  // Two-pass additive glow (halo + core) — more passes tank WEBGL fill rate.
   const energy = p.arc?.energy ?? 0.3;
-  const glowW = p.lerp(5, 8, energy);
 
+  // Ramps up quickly so the colors start popping sooner
+  const earlyEnergy = Math.pow(energy, 0.5);
+
+  // Base additive glow (halo)
+  const glowW = p.lerp(4, 15, earlyEnergy);
   p.strokeWeight(glowW);
-  p.stroke(hue, 45, 100, 10);
+  p.stroke(hue, 45, 100, p.lerp(12, 28, earlyEnergy));
   p.beginShape();
   for (let i = 0; i < n; i++) {
     const i3 = i * 3;
@@ -949,14 +918,16 @@ function drawStrand(p, strand, hx, hy, hz) {
   }
   p.endShape();
 
-  p.strokeWeight(1.6);
-  p.stroke(hue, 18, 100, 85);
+  // Core line - gets brighter and slightly thicker earlier
+  p.strokeWeight(p.lerp(1.4, 3.0, earlyEnergy));
+  p.stroke(hue, p.lerp(25, 10, energy), 100, p.lerp(70, 95, earlyEnergy));
   p.beginShape();
   for (let i = 0; i < n; i++) {
     const i3 = i * 3;
     p.vertex(pts[i3], pts[i3 + 1], pts[i3 + 2]);
   }
   p.endShape();
+
   p.strokeWeight(2);
 }
 
