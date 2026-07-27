@@ -1,11 +1,15 @@
-import p5 from "p5";
-import "@lib/p5.audioReact.js";
+import p5 from 'p5';
+import '@lib/p5.audioReact.js';
+import {
+  getPatternLocalAnchors,
+  randomPatternName,
+} from '@lib/patternAnchors.js';
 
-const base = import.meta.env.BASE_URL || "./";
-const audio = base + "audio/StringsNo3.mp3";
-const midi = base + "audio/StringsNo3.mid";
+const base = import.meta.env.BASE_URL || './';
+const audio = base + 'audio/StringsNo3.mp3';
+const midi = base + 'audio/StringsNo3.mid';
 
-const STRAND_COUNT = 28;
+const STRAND_COUNT = 48;
 const POINTS_PER_STRAND = 64;
 /** Base ellipsoid size of the string field around the halo center. */
 const HALO_RX = 220;
@@ -25,6 +29,8 @@ const GLOWING_HEAD = false;
 const PHRASE1_BARS = 16;
 const TOTAL_BARS = 35;
 const HOLD_BARS = 4;
+/** Pattern fill relative to halo ellipsoid — keep under 1 so shapes stay readable. */
+const PATTERN_SCALE = 0.92;
 
 function clamp01(v) {
   return Math.max(0, Math.min(1, v));
@@ -112,7 +118,7 @@ function generateUniverseGradient(rng = Math.random, {
     );
   }
 
-  return layers.join(", ");
+  return layers.join(', ');
 }
 
 function pickHaloTarget(p) {
@@ -142,9 +148,9 @@ function screenHaloToWorld(p, cx, cy, eyeX, eyeY, eyeZ, lookX = 0, lookY = 0, lo
   rz /= rl;
 
   // up = right × forward
-  let ux = ry * fz - rz * fy;
-  let uy = rz * fx - rx * fz;
-  let uz = rx * fy - ry * fx;
+  const ux = ry * fz - rz * fy;
+  const uy = rz * fx - rx * fz;
+  const uz = rx * fy - ry * fx;
 
   const focusDist = fl;
   const fov = Math.PI / 2.4;
@@ -161,11 +167,7 @@ function screenHaloToWorld(p, cx, cy, eyeX, eyeY, eyeZ, lookX = 0, lookY = 0, lo
 }
 
 function ensureTimpaniFlash() {
-  let style = document.getElementById("timpani-flash-style");
-  if (!style) {
-    style = document.createElement("style");
-    style.id = "timpani-flash-style";
-    style.textContent = `
+  const css = `
       #timpani-flash {
         position: fixed;
         inset: 0;
@@ -185,8 +187,14 @@ function ensureTimpaniFlash() {
         100% { opacity: 0; }
       }
     `;
+
+  let style = document.getElementById("timpani-flash-style");
+  if (!style) {
+    style = document.createElement("style");
+    style.id = "timpani-flash-style";
     document.head.appendChild(style);
   }
+  style.textContent = css;
 
   let flash = document.getElementById("timpani-flash");
   if (!flash) {
@@ -214,7 +222,6 @@ const sketch = (p) => {
   p.stars = [];
   p.starShimmer = 0;
   p.starRefresh = null;
-  p.starDriftMul = 1;
   p.t = 0;
   p.cameraAngle = 0;
   p.cameraRadius = 900;
@@ -233,6 +240,8 @@ const sketch = (p) => {
   p.orbitRate = 0.0022;
   p.motionEase = STRAND_EASE;
   p.expandPow = 1.1;
+  p.patternName = null;
+  p.patternTight = false;
 
   p.setup = async () => {
     p.pixelDensity(1);
@@ -246,7 +255,7 @@ const sketch = (p) => {
     ensureTimpaniFlash();
     p.applySongArc(1);
     p.applyUniverseGradient();
-    document.documentElement.style.setProperty("--play-icon-color", "#ffffffcc");
+    document.documentElement.style.setProperty('--play-icon-color', '#ffffffcc');
     p.clear();
     p.seedStrands(STRAND_COUNT);
     p.seedStars(p.starCountForArc());
@@ -254,18 +263,18 @@ const sketch = (p) => {
     await p.loadSong(audio, midi, (midiData) => {
       if (!midiData) return;
 
-      console.log("StringsNo3 MIDI:", midiData);
+      console.log('StringsNo3 MIDI:', midiData);
       console.table(
         midiData.tracks.map((track, index) => ({
           index,
-          name: track.name || "",
+          name: track.name || '',
           notes: track.notes?.length ?? 0,
         }))
       );
 
       // Track names are source of truth — GM instrument metadata is wrong for Combinator.
       const touchOrchestra = midiData.tracks[6].notes;
-      p.scheduleCueSet(touchOrchestra, "executeTrack1");
+      p.scheduleCueSet(touchOrchestra, 'executeTrack1');
 
       const timpaniNotes = touchOrchestra.filter((n) => n.midi <= TIMPANI_MIDI_MAX);
       console.log(
@@ -293,14 +302,12 @@ const sketch = (p) => {
       p.orbitRate = 0.0009;
       p.motionEase = 0.018;
       p.expandPow = 1.35;
-      p.starDriftMul = 0.08;
       p.veilOpacity = p.baseVeilOpacity + 0.08;
     } else {
       p.haloScaleTarget = p.lerp(0.62, 1.42, energy);
       p.orbitRate = p.lerp(0.0016, 0.0034, energy);
       p.motionEase = p.lerp(0.028, 0.07, energy);
       p.expandPow = p.lerp(1.25, 0.55, energy);
-      p.starDriftMul = p.lerp(0.55, 1.35, energy);
       p.veilOpacity = p.baseVeilOpacity - energy * 0.14;
     }
 
@@ -333,10 +340,10 @@ const sketch = (p) => {
       hueSeed: p.hueSeed || 0,
     })}`;
     const root = document.documentElement.style;
-    root.setProperty("--gradient-bg", bg);
-    root.setProperty("--halo-cx", `${p.haloCss.cx}%`);
-    root.setProperty("--halo-cy", `${p.haloCss.cy}%`);
-    root.setProperty("--gradient-blend-mode", "normal");
+    root.setProperty('--gradient-bg', bg);
+    root.setProperty('--halo-cx', `${p.haloCss.cx}%`);
+    root.setProperty('--halo-cy', `${p.haloCss.cy}%`);
+    root.setProperty('--gradient-blend-mode', 'normal');
   };
 
   // Coalesce rapid MIDI-driven style updates onto one rAF to avoid main-thread stalls.
@@ -367,6 +374,34 @@ const sketch = (p) => {
     p.queueUniverseGradient({ bright: true, moveHalo: true });
   };
 
+  p.executeTimpani = (note) => {
+    // Intensity follows the latest Track1 bar arc (timpani cues have their own index).
+    const arc = p.arc || p.applySongArc(p.bar || 1);
+    const intensity = arc.isHold ? 0.35 : 0.4 + arc.energy * 0.6;
+    p.triggerTimpaniFlash(intensity);
+    p.starShimmer = 0.55 + intensity * 0.55;
+    p.seedStars(p.starCountForArc());
+    p.starRefresh = { v: 0 };
+
+    // Late-piece timpani: brief outward kick on the string field.
+    if (!arc.isHold && arc.energy > 0.45) {
+      const kick = 1 + intensity * 0.22;
+      for (let i = 0; i < p.strands.length; i++) {
+        const s = p.strands[i];
+        if (s.localX != null) {
+          s.localX *= kick;
+          s.localY *= kick;
+          s.localZ *= kick;
+        } else {
+          s.tx *= kick;
+          s.ty *= kick;
+          s.tz *= kick;
+        }
+        s.tspread = Math.min(s.tspread * (1 + intensity * 0.2), HALO_RX * 0.7 * p.haloScale);
+      }
+    }
+  };
+
   p.draw = () => {
     if (!(p.song && p.song.isPlaying())) return;
 
@@ -378,8 +413,8 @@ const sketch = (p) => {
     p.haloCss.cx = p.lerp(p.haloCss.cx, p.haloCssTarget.cx, HALO_FOLLOW);
     p.haloCss.cy = p.lerp(p.haloCss.cy, p.haloCssTarget.cy, HALO_FOLLOW);
     p.haloScale = p.lerp(p.haloScale, p.haloScaleTarget, 0.06);
-    document.documentElement.style.setProperty("--halo-cx", `${p.haloCss.cx}%`);
-    document.documentElement.style.setProperty("--halo-cy", `${p.haloCss.cy}%`);
+    document.documentElement.style.setProperty('--halo-cx', `${p.haloCss.cx}%`);
+    document.documentElement.style.setProperty('--halo-cy', `${p.haloCss.cy}%`);
 
     p.cameraAngle += p.orbitRate;
     const radius = p.cameraRadius + Math.sin(p.t * 0.3) * 25;
@@ -410,6 +445,9 @@ const sketch = (p) => {
     }
     drawStars(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ);
 
+    // Keep sacred-geometry destinations face-on as the camera orbits.
+    syncPatternToCamera(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ);
+
     const strands = p.strands;
     const hx = p.halo.x;
     const hy = p.halo.y;
@@ -429,18 +467,47 @@ const sketch = (p) => {
     const arc = p.applySongArc(currentCue);
     const durationSec = Math.max(EXPAND_MIN_SEC, note.duration || 0.5);
 
-    const batch = [];
+    const patternName = randomPatternName(p.patternName);
+    p.patternName = patternName;
+    p.patternTight = true;
+
+    const locals = getPatternLocalAnchors(patternName, p.strands.length, {
+      rx: HALO_RX,
+      ry: HALO_RY,
+      rz: HALO_RZ,
+      scale: (p.haloScaleTarget || 1) * PATTERN_SCALE,
+      spin: p.random(p.TWO_PI),
+    });
+
     for (let i = 0; i < p.strands.length; i++) {
-      batch.push({
-        strand: p.strands[i],
-        pitch: pitch + p.random(-12, 12),
-        anchor: randomInHalo(p),
-      });
+      const strand = p.strands[i];
+      const local = locals[i];
+      strand.localX = local.x;
+      strand.localY = local.y;
+      strand.localZ = local.z;
     }
 
-    const center = centroidOf(batch.map((b) => b.anchor));
-    for (const item of batch) {
-      beginStrandExpand(p, item.strand, item.anchor, center, item.pitch, durationSec);
+    // Billboard with the current camera so the burst target is already face-on.
+    const radius = p.cameraRadius + Math.sin(p.t * 0.3) * 25;
+    const eyeX = Math.cos(p.cameraAngle) * radius;
+    const eyeY = Math.sin(p.cameraAngle * 0.35) * 90;
+    const eyeZ = Math.sin(p.cameraAngle) * radius;
+    const lookX = Math.sin(p.t * 0.2) * 15;
+    const lookY = Math.cos(p.t * 0.16) * 10;
+    const lookZ = 0;
+    syncPatternToCamera(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ);
+
+    const center = { x: 0, y: 0, z: 0 };
+    for (let i = 0; i < p.strands.length; i++) {
+      const strand = p.strands[i];
+      beginStrandExpand(
+        p,
+        strand,
+        { x: strand.tx, y: strand.ty, z: strand.tz },
+        center,
+        pitch + p.random(-12, 12),
+        durationSec
+      );
     }
 
     // Phrase-2 seam: wipe stars into a denser field.
@@ -458,34 +525,13 @@ const sketch = (p) => {
     }
   };
 
-  p.executeTimpani = (note) => {
-    // Intensity follows the latest Track1 bar arc (timpani cues have their own index).
-    const arc = p.arc || p.applySongArc(p.bar || 1);
-    const intensity = arc.isHold ? 0.35 : 0.4 + arc.energy * 0.6;
-    p.triggerTimpaniFlash(intensity);
-    p.starShimmer = 0.55 + intensity * 0.55;
-    p.seedStars(p.starCountForArc());
-    p.starRefresh = { v: 0 };
-
-    // Late-piece timpani: brief outward kick on the string field.
-    if (!arc.isHold && arc.energy > 0.45) {
-      const kick = 1 + intensity * 0.22;
-      for (let i = 0; i < p.strands.length; i++) {
-        const s = p.strands[i];
-        s.tx *= kick;
-        s.ty *= kick;
-        s.tz *= kick;
-        s.tspread = Math.min(s.tspread * (1 + intensity * 0.2), HALO_RX * 0.7 * p.haloScale);
-      }
-    }
-  };
-
   p.resetAnimation = () => {
     p.t = 0;
     p.cameraAngle = 0;
     p.starShimmer = 0;
     p.starRefresh = null;
-    p.starDriftMul = 1;
+    p.patternName = null;
+    p.patternTight = false;
     p.halo = { x: 0, y: 0, z: 0 };
     p.haloCss = { cx: 50, cy: 52 };
     p.haloCssTarget = { cx: 50, cy: 52 };
@@ -520,11 +566,11 @@ const sketch = (p) => {
     p.togglePlayback();
     if (typeof window.dataLayer !== typeof undefined && !p.hasStarted) {
       window.dataLayer.push({
-        event: "play-animation",
+        event: 'play-animation',
         animation: {
           title: document.title,
           location: window.location.href,
-          action: "start playing",
+          action: 'start playing',
         },
       });
       p.hasStarted = true;
@@ -564,8 +610,10 @@ function randomInHalo(p) {
 function randomHaloSpread(p) {
   const scale = p.haloScale ?? 1;
   const energy = p.arc?.energy ?? 0.3;
-  const lo = HALO_RX * p.lerp(0.12, 0.2, energy) * scale;
-  const hi = HALO_RX * p.lerp(0.28, 0.52, energy) * scale;
+  // Tighter filaments so sacred-geometry silhouettes stay readable after the burst.
+  const tight = p.patternTight ? 0.42 : 1;
+  const lo = HALO_RX * p.lerp(0.12, 0.2, energy) * scale * tight;
+  const hi = HALO_RX * p.lerp(0.28, 0.52, energy) * scale * tight;
   return p.random(lo, hi);
 }
 
@@ -580,6 +628,43 @@ function centroidOf(points) {
     z += points[i].z;
   }
   return { x: x / n, y: y / n, z: z / n };
+}
+
+/** Map pattern-local anchors onto the camera view plane (billboard). */
+function syncPatternToCamera(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ) {
+  if (!p.patternTight) return;
+
+  let fx = lookX - eyeX;
+  let fy = lookY - eyeY;
+  let fz = lookZ - eyeZ;
+  const fl = Math.hypot(fx, fy, fz) || 1;
+  fx /= fl;
+  fy /= fl;
+  fz /= fl;
+
+  let rx = -fz;
+  let ry = 0;
+  let rz = fx;
+  const rl = Math.hypot(rx, ry, rz) || 1;
+  rx /= rl;
+  ry /= rl;
+  rz /= rl;
+
+  const ux = ry * fz - rz * fy;
+  const uy = rz * fx - rx * fz;
+  const uz = rx * fy - ry * fx;
+
+  const strands = p.strands;
+  for (let i = 0; i < strands.length; i++) {
+    const s = strands[i];
+    if (s.localX == null) continue;
+    const lx = s.localX;
+    const ly = s.localY;
+    const lz = s.localZ;
+    s.tx = rx * lx + ux * ly + fx * lz;
+    s.ty = ry * lx + uy * ly + fy * lz;
+    s.tz = rz * lx + uz * ly + fz * lz;
+  }
 }
 
 function createStrand(p) {
@@ -613,6 +698,9 @@ function createStrand(p) {
     pts: new Float32Array(POINTS_PER_STRAND * 3),
     drift: p.random(0.012, 0.022) * p.lerp(1.05, 1.75, energy),
     phase: p.random(p.TWO_PI),
+    localX: ox,
+    localY: oy,
+    localZ: oz,
   };
 }
 
@@ -644,7 +732,14 @@ function beginStrandExpand(p, strand, anchor, center, pitch = 60, durationSec = 
   strand.fromSpread = spread * p.lerp(0.18, 0.06, energy);
   strand.spread = strand.fromSpread;
   strand.tspread = spread;
-  strand.drift = p.random(0.012, 0.024) * (isHold ? 0.55 : p.lerp(1.05, 1.9, energy));
+  const driftMul = p.patternTight
+    ? isHold
+      ? 0.35
+      : p.lerp(0.55, 0.95, energy)
+    : isHold
+      ? 0.55
+      : p.lerp(1.05, 1.9, energy);
+  strand.drift = p.random(0.012, 0.024) * driftMul;
   strand.phase = p.random(p.TWO_PI);
 }
 
@@ -737,32 +832,31 @@ function drawStars(p, eyeX, eyeY, eyeZ, lookX, lookY, lookZ) {
   ry /= rl;
   rz /= rl;
 
-  let ux = ry * fz - rz * fy;
-  let uy = rz * fx - rx * fz;
-  let uz = rx * fy - ry * fx;
+  const ux = ry * fz - rz * fy;
+  const uy = rz * fx - rx * fz;
+  const uz = rx * fy - ry * fx;
 
   const stars = p.stars;
   const t = p.t;
   const shimmer = p.starShimmer;
   const vis = p.starRefresh ? Math.max(0, Math.min(1, p.starRefresh.v)) : 1;
   if (vis <= 0) return;
-  const driftMul = p.starDriftMul ?? 1;
   p.strokeWeight(1.5);
   for (let s = 0; s < stars.length; s++) {
     const star = stars[s];
     const amp = star.amp;
     const amp2 = amp * 2;
     const pts = star.pts;
-    const nx = star.nx + t * star.dnx * driftMul;
-    const ny = star.ny + t * star.dny * driftMul;
-    const nz = star.nz + t * star.dnz * driftMul;
-    const lx = star.lx + t * star.dx * driftMul;
-    const ly = star.ly + t * star.dy * driftMul;
-    const lz = star.lz + t * star.dz * driftMul;
+    const nx = star.nx + t * star.dnx;
+    const ny = star.ny + t * star.dny;
+    const nz = star.nz + t * star.dnz;
+    const lx = star.lx + t * star.dx;
+    const ly = star.ly + t * star.dy;
+    const lz = star.lz + t * star.dz;
     const ox = lookX + rx * lx + ux * ly + fx * lz;
     const oy = lookY + ry * lx + uy * ly + fy * lz;
     const oz = lookZ + rz * lx + uz * ly + fz * lz;
-    const phase = star.phase + t * star.phaseDrift * driftMul;
+    const phase = star.phase + t * star.phaseDrift;
 
     for (let i = 0; i < STAR_POINTS; i++) {
       const u = i * 0.11 + phase;
