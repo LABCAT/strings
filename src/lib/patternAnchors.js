@@ -8,24 +8,11 @@ const TWO_PI = Math.PI * 2;
 export const PATTERN_NAMES = [
   "pentagram",
   "hexagram",
-  "octagram",
   "starburst",
   "spiral",
   "doubleSpiral",
-  "helix",
-  "goldenSpiral",
   "infinity",
-  "triskele",
 ];
-
-function ring(n, r, z = 0, phase = 0) {
-  const pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = phase + (i / n) * TWO_PI;
-    pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r, z });
-  }
-  return pts;
-}
 
 function lerpPt(a, b, t) {
   return {
@@ -69,6 +56,15 @@ function sampleLoop(verts, count) {
   return pts;
 }
 
+function fitCount(pts, count) {
+  if (pts.length > count) return pts.slice(0, count);
+  while (pts.length < count) {
+    const t = pts.length / Math.max(1, count);
+    pts.push({ x: Math.cos(t * TWO_PI) * 0.35, y: Math.sin(t * TWO_PI) * 0.35, z: 0 });
+  }
+  return pts;
+}
+
 /** n-point star outline (outer/inner radius alternating). */
 function starOutline(tips, count, inner = 0.38, phase = -Math.PI / 2) {
   const verts = [];
@@ -88,10 +84,6 @@ function hexagram(count) {
   return starOutline(6, count, 0.45);
 }
 
-function octagram(count) {
-  return starOutline(8, count, 0.42);
-}
-
 /** Radial rays from center — asterisk / starburst. */
 function starburst(count) {
   const rays = 8;
@@ -106,13 +98,7 @@ function starburst(count) {
       pts.push({ x: c * t, y: s * t, z: 0 });
     }
   }
-  // Trim or pad to exact count.
-  if (pts.length > count) return pts.slice(0, count);
-  while (pts.length < count) {
-    const a = (pts.length / count) * TWO_PI;
-    pts.push({ x: Math.cos(a), y: Math.sin(a), z: 0 });
-  }
-  return pts;
+  return fitCount(pts, count);
 }
 
 function spiral(count) {
@@ -154,42 +140,6 @@ function doubleSpiral(count) {
   return [...arm(half, 0), ...arm(rest, Math.PI)];
 }
 
-/** 3D corkscrew — reads strongly as it billboards. */
-function helix(count) {
-  const pts = [];
-  const turns = 3;
-  const n = Math.max(2, count);
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    const a = t * turns * TWO_PI;
-    pts.push({
-      x: Math.cos(a) * 0.7,
-      y: Math.sin(a) * 0.7,
-      z: (t - 0.5) * 2,
-    });
-  }
-  return pts;
-}
-
-/** Approximate golden / Fibonacci spiral. */
-function goldenSpiral(count) {
-  const pts = [];
-  const phi = 1.6180339887;
-  const n = Math.max(2, count);
-  const maxT = 4.2;
-  for (let i = 0; i < n; i++) {
-    const t = (i / (n - 1)) * maxT;
-    const r = Math.pow(phi, t) / Math.pow(phi, maxT);
-    const a = t * TWO_PI * 0.5;
-    pts.push({
-      x: Math.cos(a) * r,
-      y: Math.sin(a) * r,
-      z: (i / (n - 1) - 0.5) * 0.2,
-    });
-  }
-  return pts;
-}
-
 /** Lemniscate of Bernoulli (∞). */
 function infinity(count) {
   const pts = [];
@@ -208,44 +158,13 @@ function infinity(count) {
   return pts;
 }
 
-/** Three spiral arms from center (triskele). */
-function triskele(count) {
-  const arms = 3;
-  const perArm = Math.max(2, Math.floor(count / arms));
-  const pts = [];
-  const turns = 1.15;
-  for (let a = 0; a < arms; a++) {
-    const phase = -Math.PI / 2 + (a / arms) * TWO_PI;
-    for (let i = 0; i < perArm; i++) {
-      const t = i / (perArm - 1 || 1);
-      const ang = phase + t * turns * TWO_PI;
-      const r = 0.08 + t * 0.92;
-      pts.push({
-        x: Math.cos(ang) * r,
-        y: Math.sin(ang) * r,
-        z: (t - 0.5) * 0.15,
-      });
-    }
-  }
-  if (pts.length > count) return pts.slice(0, count);
-  while (pts.length < count) {
-    const t = pts.length / count;
-    pts.push({ x: Math.cos(t * TWO_PI) * 0.2, y: Math.sin(t * TWO_PI) * 0.2, z: 0 });
-  }
-  return pts;
-}
-
 const GENERATORS = {
   pentagram,
   hexagram,
-  octagram,
   starburst,
   spiral,
   doubleSpiral,
-  helix,
-  goldenSpiral,
   infinity,
-  triskele,
 };
 
 function normalizeExtent(pts) {

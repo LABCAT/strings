@@ -75,6 +75,11 @@ p5.prototype.loadSong = async function (audioUrl, midiUrl, callback) {
       this._playbackWallStartPerf = null;
       const dur = this.song.duration?.() ?? 0;
       this._playbackFrozenSec = Number.isFinite(dur) ? dur : 0;
+      // p5.sound SoundFile leaves playing/paused stale after natural end.
+      if (this.song) {
+        this.song.playing = false;
+        this.song.paused = false;
+      }
       if (this.canvas) {
         this.canvas.classList.add('p5Canvas--cursor-play');
         this.canvas.classList.remove('p5Canvas--cursor-pause');
@@ -159,10 +164,16 @@ p5.prototype.togglePlayback = function () {
     } else {
       const duration = this.song.duration();
       let fromSec = Math.max(0, this.getSongPlaybackTime() || 0);
-      if (Number.isFinite(fromSec) && Number.isFinite(duration) && fromSec >= duration && duration > 0) {
+      const ended =
+        !!this.songHasFinished ||
+        (Number.isFinite(fromSec) &&
+          Number.isFinite(duration) &&
+          duration > 0 &&
+          fromSec >= duration - 0.05);
+      if (ended) {
         this.resetAnimation?.();
-        this.song.jump(0);
         this._playbackFrozenSec = 0;
+        this.songHasFinished = false;
         fromSec = 0;
       }
       const playIcon = document.getElementById('play-icon');
@@ -174,7 +185,28 @@ p5.prototype.togglePlayback = function () {
         this._reindexMidiCues(fromSec);
         this._stopMidiCuePoll();
         this.userStartAudio();
-        this.song.play();
+
+        // SoundFile.play() skips node.start() when paused=true, and ignores cue args.
+        // After a natural end we must force a fresh Tone Player start from 0.
+        if (ended) {
+          this.song.paused = false;
+          this.song.playing = true;
+          const rate = this.song.speed || 1;
+          this.song.node.playbackRate = rate;
+          try {
+            this.song.node.start(undefined, 0);
+          } catch (_) {
+            try {
+              this.song.node.restart(undefined, 0);
+            } catch (err) {
+              console.error('Failed to restart song:', err);
+            }
+          }
+          if (typeof this.song.setVolume === 'function') this.song.setVolume(1);
+        } else {
+          this.song.play();
+        }
+
         this._midiCuePollId = setInterval(() => this._midiCuePollTick(), 20);
         this._midiCuePollTick();
         this.showingStatic = false;
