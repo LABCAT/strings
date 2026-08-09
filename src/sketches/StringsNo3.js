@@ -1,5 +1,6 @@
 import p5 from 'p5';
 import '@lib/p5.audioReact.js';
+import initCapture from '@lib/p5.capture.js';
 import {
   getPatternLocalAnchors,
   randomPatternName,
@@ -311,6 +312,11 @@ const sketch = (p) => {
     p.pixelDensity(1);
     p.frameRate(60);
     p.createCanvas(p.canvasWidth, p.canvasHeight, p.WEBGL);
+    initCapture(p, {
+      enabled: false,
+      prefix: 'StringsNo3',
+      captureCSSBackground: true,
+    });
     p.colorMode(p.HSB, 360, 100, 100, 100);
     p.noFill();
     p.strokeWeight(2);
@@ -427,9 +433,9 @@ const sketch = (p) => {
   };
 
   p.draw = () => {
-    const playing = !!(p.song && p.song.isPlaying());
-    // Idle before first play: veil only. After start (incl. pause): keep scene visible.
-    const showScene = playing || !!p.hasStarted;
+    const playing = !!(p.song && p.song.isPlaying()) || !!p.captureInProgress;
+    // Scene only after Track1 has fired; stays up while paused.
+    const showScene = !!p.hasStarted;
 
     p.clear();
 
@@ -495,6 +501,7 @@ const sketch = (p) => {
         if (p.starRefresh.v >= 1) p.starRefresh = null;
       }
     }
+
     drawStars(p, basis, lookX, lookY, lookZ);
 
     // Keep sacred-geometry destinations face-on as the camera orbits.
@@ -521,6 +528,19 @@ const sketch = (p) => {
 
   p.executeTrack1 = (note) => {
     const { currentCue, midi: pitch } = note;
+    if (!p.hasStarted) {
+      p.hasStarted = true;
+      if (typeof window.dataLayer !== typeof undefined) {
+        window.dataLayer.push({
+          event: 'play-animation',
+          animation: {
+            title: document.title,
+            location: window.location.href,
+            action: 'start playing',
+          },
+        });
+      }
+    }
     p.applySongArc(currentCue);
     const durationSec = Math.max(EXPAND_MIN_SEC, note.duration || 0.5);
 
@@ -619,19 +639,6 @@ const sketch = (p) => {
 
   p.mousePressed = () => {
     p.togglePlayback();
-    if (!p.hasStarted && p.song?.isPlaying()) {
-      p.hasStarted = true;
-      if (typeof window.dataLayer !== typeof undefined) {
-        window.dataLayer.push({
-          event: 'play-animation',
-          animation: {
-            title: document.title,
-            location: window.location.href,
-            action: 'start playing',
-          },
-        });
-      }
-    }
   };
 
   p.keyPressed = () => {
