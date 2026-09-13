@@ -2,7 +2,11 @@
 
 Creative coding experiments exploring audio-reactive visualizations through the form of strings. Each animation uses precise MIDI synchronization to trigger visual transformations that respond to different audio tracks, creating a dynamic interplay between sound and form.
 
+Follow on Instagram → https://www.instagram.com/labcat2020/
+
 ## #StringsNo1
+
+https://strings.labcat.nz/number-1/
 
 Unveil the hidden frequency of the universe. 🗝️
 
@@ -16,6 +20,8 @@ Music made in ReasonStudios 🎹 Animation created with p5js, WebGL and ToneJS �
 
 ## #StringsNo2
 
+https://strings.labcat.nz/number-2/
+
 🎻 When physics becomes poetry and particles dance! 🌌
 
 #StringsNo2 — watch the fabric of reality vibrate with every note. Eleven dimensions unfold through cascading patterns and cosmic rhythms.
@@ -27,6 +33,8 @@ Music made in ReasonStudios 🎹 Animation created with p5js, WebGL and ToneJS �
 Music made in ReasonStudios 🎹 Animation created with p5js, WebGL and ToneJS 💻
 
 ## #StringsNo3
+
+https://strings.labcat.nz/number-3/
 
 🌌 Majesty gathers in the glow. ✨
 
