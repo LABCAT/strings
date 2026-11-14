@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@labcat2020/animation-lab':
-        specifier: ^0.4.0
-        version: 0.4.0(astro@7.1.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.3.1)(rollup@4.50.0)(sass-embedded@1.100.0)(sass@1.100.0))(sass-embedded@1.100.0)
+        specifier: ^0.5.0
+        version: 0.5.0(astro@7.1.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.3.1)(rollup@4.50.0)(sass-embedded@1.100.0)(sass@1.100.0))(sass-embedded@1.100.0)
       '@tonejs/midi':
         specifier: ^2.0.28
         version: 2.0.28
@@ -588,8 +588,8 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@labcat2020/animation-lab@0.4.0':
-    resolution: {integrity: sha512-XJRZoG58uUQMnadekohhvJvWXUDVmDorQkl3c9qYfh8wEOoSztV7HVCFpOxum41bhdqsApdSqpbaeHwX40v4Ow==}
+  '@labcat2020/animation-lab@0.5.0':
+    resolution: {integrity: sha512-+pNV3FhOYchzOODdCxB3P4OU0pgkEqKAeJw58kXKVczqoBIbB/BkrjPqhIWcg3Qua3tas0vFaWZujZgbiOSp0w==}
     hasBin: true
     peerDependencies:
       astro: ^6.0.8
@@ -3050,7 +3050,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@labcat2020/animation-lab@0.4.0(astro@7.1.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.3.1)(rollup@4.50.0)(sass-embedded@1.100.0)(sass@1.100.0))(sass-embedded@1.100.0)':
+  '@labcat2020/animation-lab@0.5.0(astro@7.1.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.3.1)(rollup@4.50.0)(sass-embedded@1.100.0)(sass@1.100.0))(sass-embedded@1.100.0)':
     dependencies:
       '@labcat2020/rocketship': 0.1.0
       astro: 7.1.1(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(@types/node@24.3.1)(rollup@4.50.0)(sass-embedded@1.100.0)(sass@1.100.0)
